@@ -36,10 +36,12 @@ def main(data_filename, window):
     # Convert to date
     df["Timestamp"] = pd.to_datetime(df["Timestamp"])
     df = df.set_index("Timestamp")
+    df["Success"] = (df["Server ID"] != -1)
 
     # Convert units
     df["Download"] /= 1e6
     df["Upload"] /= 1e6
+    df_fails = df[~df["Success"]]
 
     # Create rolling average
     rolling = df.rolling(window).mean()
@@ -61,6 +63,8 @@ def main(data_filename, window):
     )
     for ax, column in zip(axes, columns):
         ax.plot(rolling.index, rolling[column], marker=".", linestyle="None")
+        for fail_date in df_fails.index:
+            ax.axvline(fail_date, color="C3", linestyle="-", linewidth=0.5)
         ax.set_ylabel(column)
         ax.grid()
     axes[0].set_title(f"Internet Speed for {date_range_str}\nRolling Window: {window}")
@@ -79,10 +83,17 @@ def main(data_filename, window):
     # Percent downtime
     # Note that I added the ability for speedtest.py to record failed tests later on
     # So we only want to consider times after the first failed test
-    df["Success"] = (df["Server ID"] != -1)
-    if sum(~df["Success"]):
-        first_failed_test = df[~df["Success"]].index[0]
+    if not df_fails.empty:
+        first_failed_test = df_fails.index[0]
         df_post_fail = df[first_failed_test:]
+
+        # Range of data -- this is only for after the first failed test
+        start_date, stop_date = [
+            dstr.strftime("%Y-%m-%d")
+            for dstr in (df_post_fail.index[0], df_post_fail.index[-1])
+        ]
+        date_range_str = f"{start_date} to {stop_date}"
+
         fig, ax = plt.subplots(figsize=0.8 * np.array([16, 9]))
         counts = df_post_fail["Success"].value_counts()
         counts.sort_values().plot(kind = "bar", ax=ax)
