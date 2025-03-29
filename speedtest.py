@@ -10,6 +10,8 @@ import os
 import argparse
 import subprocess
 
+import datetime
+
 ARG_PARSER = argparse.ArgumentParser(description="Script for internet speed test.")
 
 ARG_PARSER.add_argument(
@@ -23,6 +25,20 @@ SPEEDTEST_FILENAME = "data.csv"
 """
 Default speedtest data file.
 """
+
+def error_entry():
+    return ",".join([
+        "-1",
+        "N/A",
+        "N/A",
+        datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z",
+        "nan",
+        "nan",
+        "0",
+        "0",
+        "nan",
+        "N/A",
+    ]) + "\n"
 
 def main(data_filename):
     """
@@ -40,9 +56,11 @@ def main(data_filename):
             dfile.write(result.stdout.decode("utf-8")[:-1])
 
     result = subprocess.run(["speedtest-cli", "--csv"], capture_output=True)
-    breakpoint
+    entry = result.stdout.decode("utf-8")[:-1]
+    if not entry:
+        entry = error_entry()
     with open(data_filename, "a") as dfile:
-        dfile.write(result.stdout.decode("utf-8")[:-1])
+        dfile.write(entry)
 
 
 if __name__ == "__main__":
